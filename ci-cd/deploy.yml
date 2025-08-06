@@ -1,0 +1,23 @@
+name: Deploy to EC2 (via SSH)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_PROD_KEY }}
+          script: |
+            cd ~/app
+            git pull
+            npm install
+            npm run start
