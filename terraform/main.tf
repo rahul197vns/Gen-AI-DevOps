@@ -28,7 +28,7 @@ resource "aws_instance" "prod" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = var.ssh_private_key
+      private_key = file("~/.ssh/Gen-AI.pem")
       host        = self.public_ip
     }
   }
