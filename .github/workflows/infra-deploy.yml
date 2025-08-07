@@ -1,11 +1,15 @@
-name: Deploy EC2 Infra with Terraform
+name: Provision EC2 and Deploy Node.js App
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "app/**"
+      - ".github/workflows/**"
+      - "terraform/**"
 
 jobs:
-  terraform:
-    name: Apply Terraform
+  deploy_infra_and_app:
     runs-on: ubuntu-latest
 
     env:
@@ -16,7 +20,7 @@ jobs:
       TF_VAR_ssh_private_key: ${{ secrets.TF_VAR_ssh_private_key }}
 
     steps:
-    - name: Checkout repo
+    - name: Checkout Code
       uses: actions/checkout@v3
 
     - name: Set up Terraform
@@ -28,10 +32,41 @@ jobs:
       run: terraform init
       working-directory: terraform
 
-    #- name: Terraform Apply
-     # run: terraform apply -auto-approve
-     # working-directory: terraform
+    - name: Terraform Apply
+      id: tf_apply
+      run: terraform apply -auto-approve
+      working-directory: terraform
 
-    - name: Terraform Destroy
-      run: terraform destroy -auto-approve
-      working-directory: terraform      
+    - name: Get EC2 Public IP from Terraform Output
+      id: get_ip
+      run: |
+        echo "EC2_IP=$(terraform output -raw public_ip)" >> $GITHUB_ENV
+      working-directory: terraform
+
+    - name: Wait for EC2 to be ready
+      run: |
+        echo "Waiting for EC2 instance to be reachable..."
+        sleep 60  # Adjust as needed based on your AMI boot time
+
+    - name: Install SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.TF_VAR_ssh_private_key }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+    - name: Deploy Node.js App
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP << 'EOF'
+          sudo apt update -y
+          sudo apt install -y nodejs npm git
+          rm -rf ~/genai-node-app
+          git clone https://github.com/${{ github.repository }} ~/genai-node-app
+          cd ~/genai-node-app/app
+          npm install
+          nohup node index.js > app.log 2>&1 &
+        EOF
+
+    # Optional: Destroy EC2 if needed (comment out to keep it running)
+    #- name: Terraform Destroy
+    #  run: terraform destroy -auto-approve
+    #  working-directory: terraform
