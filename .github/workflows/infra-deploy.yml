@@ -40,22 +40,19 @@ jobs:
     - name: Get EC2 Public IP from Terraform Output
       id: get_ip
       run: |
-       echo "Trying to fetch Terraform public IP..."
-       if terraform output -raw public_ip 2>/dev/null; then
+        echo "Trying to fetch Terraform public IP..."
         PUBLIC_IP=$(terraform output -raw public_ip)
         echo "EC2_IP=$PUBLIC_IP" >> $GITHUB_ENV
+        echo "::add-mask::$PUBLIC_IP"
         echo "✅ Got IP: $PUBLIC_IP"
-       else
-        echo "❌ Could not fetch public_ip from Terraform. Skipping..."
-        echo "EC2_IP=" >> $GITHUB_ENV
-       fi
       working-directory: terraform
-
 
     - name: Wait for EC2 to be ready
       run: |
-        echo "Waiting for EC2 instance to be reachable..."
-        sleep 60  # Adjust as needed based on your AMI boot time
+        echo "Waiting for EC2 instance at $EC2_IP to be reachable..."
+        sleep 60  # Adjust if needed for boot time
+      env:
+        EC2_IP: ${{ env.EC2_IP }}
 
     - name: Install SSH Key
       run: |
@@ -74,8 +71,10 @@ jobs:
           npm install
           nohup node index.js > app.log 2>&1 &
         EOF
+      env:
+        EC2_IP: ${{ env.EC2_IP }}
 
-    # Optional: Destroy EC2 if needed (comment out to keep it running)
-    #- name: Terraform Destroy
-    #  run: terraform destroy -auto-approve
-    #  working-directory: terraform
+    # Optional: Uncomment below to destroy EC2 after deployment
+    # - name: Terraform Destroy
+    #   run: terraform destroy -auto-approve
+    #   working-directory: terraform
