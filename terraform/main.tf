@@ -1,62 +1,59 @@
+# 1. Configure the AWS provider
 provider "aws" {
-  region = var.region
+  region = "us-east-1"
 }
 
-variable "key_pair_name" {}
-variable "ssh_private_key" {}
-variable "region" {
-  default = "ap-south-1"
+# 2. Generate an SSH key pair
+resource "tls_private_key" "key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-resource "aws_instance" "prod" {
-  ami           = "ami-0f918f7e67a3323f0"
+resource "aws_key_pair" "generated_key" {
+  key_name   = "my-terraform-key"
+  public_key = tls_private_key.key.public_key_openssh
+}
+
+# 3. Security group to allow SSH (and HTTP, if needed)
+resource "aws_security_group" "ssh" {
+  name        = "allow_ssh"
+  description = "Allow SSH inbound"
+  
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Change for production
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# 4. Create two EC2 instances using count
+resource "aws_instance" "app" {
+  count         = 1
+  ami           = "ami-0f918f7e67a3323f0"      # Example Ubuntu/Nginx AMI
   instance_type = "t2.micro"
-  key_name      = var.key_pair_name
+  key_name      = aws_key_pair.generated_key.key_name
+  vpc_security_group_ids = [aws_security_group.ssh.id]
+  associate_public_ip_address = true
 
   tags = {
-    Name = "genai-prod-ec2"
+    Name = "app-server-${count.index + 1}"
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "sudo apt update -y",
-      "sudo apt install -y nodejs npm git nginx docker.io",
-      "sudo systemctl start nginx",
-      "sudo systemctl enable nginx"
-    ]
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = var.ssh_private_key
-      host        = self.public_ip
-      timeout     = "10m"
-    }
-  }
-}
-
-resource "aws_instance" "staging" {
-  ami           = "ami-0f918f7e67a3323f0"
-  instance_type = "t2.micro"
-  key_name      = var.key_pair_name
-
-  tags = {
-    Name = "genai-staging-ec2"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo apt update -y",
-      "sudo apt install -y nodejs npm git nginx docker.io",
-      "sudo systemctl start nginx",
-      "sudo systemctl enable nginx"
-    ]
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = var.ssh_private_key
-      host        = self.public_ip
-    }
-  }
+  # Optional: Use user-data for provisioning
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo apt-get update -y
+              sudo apt-get install -y nginx
+              sudo systemctl enable nginx
+              sudo systemctl start nginx
+              echo "Hello from server ${count.index + 1}" > /var/www/html/index.html
+              EOF
 }
