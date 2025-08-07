@@ -1,6 +1,6 @@
 # 1. Configure the AWS provider
 provider "aws" {
-  region = "us-east-1"
+  region = "ap-south-1"
 }
 
 # 2. Generate an SSH key pair
