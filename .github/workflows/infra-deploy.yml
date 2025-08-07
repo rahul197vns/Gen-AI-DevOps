@@ -40,14 +40,14 @@ jobs:
     - name: Get EC2 Public IP from Terraform Output
       id: get_ip
       run: |
-        echo "Trying to fetch Terraform public IP..."
-        RAW_IP=$(terraform output public_ip)
-        CLEANED_IP=$(echo "$RAW_IP" | tr -d '[]" \n\r')
-        echo "EC2_IP=$CLEANED_IP" >> $GITHUB_ENV
-        echo "::add-mask::$CLEANED_IP"
-        echo "✅ Got IP: $CLEANED_IP"
-        echo "ec2_ip=$CLEANED_IP" >> $GITHUB_OUTPUT
+       echo "Fetching Terraform public IP..."
+       RAW_IP=$(terraform output -raw public_ip)
+       CLEANED_IP=$(echo "$RAW_IP" | tr -d '\r\n ')
+       echo "EC2_IP=$CLEANED_IP" >> $GITHUB_ENV
+       echo "::add-mask::$CLEANED_IP"
+       echo "ec2_ip=$CLEANED_IP" >> $GITHUB_OUTPUT
       working-directory: terraform
+
 
     - name: Wait for EC2 to be ready
       run: |
@@ -66,7 +66,7 @@ jobs:
           sudo apt update -y
           sudo apt install -y nodejs npm git
           rm -rf ~/genai-node-app
-          git clone https://github.com/${{ github.repository }} ~/genai-node-app
+          git clone https://github.com/rahul197vns/Gen-AI-DevOps ~/genai-node-app
           cd ~/genai-node-app/app
           npm install
           nohup node index.js > app.log 2>&1 &
