@@ -40,12 +40,13 @@ jobs:
     - name: Get EC2 Public IP from Terraform Output
       id: get_ip
       run: |
-        echo "Trying to fetch Terraform public IP..."
-        PUBLIC_IP=$(terraform output -raw public_ip)
-        echo "EC2_IP=$PUBLIC_IP" >> $GITHUB_ENV
-        echo "::add-mask::$PUBLIC_IP"
-        echo "✅ Got IP: $PUBLIC_IP"
+       echo "Trying to fetch Terraform public IP from list..."
+       PUBLIC_IP=$(terraform output public_ip | grep -oP '\d+\.\d+\.\d+\.\d+')
+       echo "EC2_IP=$PUBLIC_IP" >> $GITHUB_ENV
+       echo "::add-mask::$PUBLIC_IP"
+       echo "✅ Got IP: $PUBLIC_IP"
       working-directory: terraform
+
 
     - name: Wait for EC2 to be ready
       run: |
