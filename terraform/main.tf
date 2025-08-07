@@ -10,13 +10,13 @@ resource "tls_private_key" "key" {
 }
 
 resource "aws_key_pair" "generated_key" {
-  key_name   = "my-terraform-key"
+  key_name   = "my-terraform"
   public_key = tls_private_key.key.public_key_openssh
 }
 
 # 3. Security group to allow SSH (and HTTP, if needed)
 resource "aws_security_group" "ssh" {
-  name        = "allow_ssh"
+  name        = "allow_ssh_genai"
   description = "Allow SSH inbound"
   
   ingress {
@@ -44,16 +44,14 @@ resource "aws_instance" "app" {
   associate_public_ip_address = true
 
   tags = {
-    Name = "app-server-${count.index + 1}"
+    Name = "gen-ai-${count.index + 1}"
   }
 
-  # Optional: Use user-data for provisioning
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo apt-get update -y
-              sudo apt-get install -y nginx
-              sudo systemctl enable nginx
-              sudo systemctl start nginx
-              echo "Hello from server ${count.index + 1}" > /var/www/html/index.html
-              EOF
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt update -y",
+      "sudo apt install -y nodejs npm git nginx docker.io",
+      "sudo systemctl start nginx",
+      "sudo systemctl enable nginx"
+    ]
 }
