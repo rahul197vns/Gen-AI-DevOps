@@ -54,5 +54,11 @@ resource "aws_instance" "app" {
       "sudo systemctl start nginx",
       "sudo systemctl enable nginx"
     ]
+  connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = tls_private_key.key.public_key_openssh
+      host        = self.public_ip
+    }
 }
 }
