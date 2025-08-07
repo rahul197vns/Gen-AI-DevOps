@@ -55,3 +55,4 @@ resource "aws_instance" "app" {
       "sudo systemctl enable nginx"
     ]
 }
+}
