@@ -40,19 +40,19 @@ jobs:
     - name: Get EC2 Public IP from Terraform Output
       id: get_ip
       run: |
-       echo "Trying to fetch Terraform public IP from string output..."
-       PUBLIC_IP=$(terraform output public_ip | tr -d '"')
-       echo "EC2_IP=${PUBLIC_IP}" >> "${GITHUB_ENV}"
-       echo "::add-mask::${PUBLIC_IP}"
-       echo "✅ Got IP: ${PUBLIC_IP}"
+        echo "Trying to fetch Terraform public IP..."
+        RAW_IP=$(terraform output public_ip)
+        CLEANED_IP=$(echo "$RAW_IP" | tr -d '[]" \n\r')
+        echo "EC2_IP=$CLEANED_IP" >> $GITHUB_ENV
+        echo "::add-mask::$CLEANED_IP"
+        echo "✅ Got IP: $CLEANED_IP"
+        echo "ec2_ip=$CLEANED_IP" >> $GITHUB_OUTPUT
       working-directory: terraform
 
     - name: Wait for EC2 to be ready
       run: |
-        echo "Waiting for EC2 instance at $EC2_IP to be reachable..."
-        sleep 60  # Adjust if needed for boot time
-      env:
-        EC2_IP: ${{ env.EC2_IP }}
+        echo "Waiting for EC2 instance at ${{ steps.get_ip.outputs.ec2_ip }} to be reachable..."
+        sleep 60
 
     - name: Install SSH Key
       run: |
@@ -62,7 +62,7 @@ jobs:
 
     - name: Deploy Node.js App
       run: |
-        ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP << 'EOF'
+        ssh -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.ec2_ip }} << 'EOF'
           sudo apt update -y
           sudo apt install -y nodejs npm git
           rm -rf ~/genai-node-app
@@ -71,10 +71,3 @@ jobs:
           npm install
           nohup node index.js > app.log 2>&1 &
         EOF
-      env:
-        EC2_IP: ${{ env.EC2_IP }}
-
-    # Optional: Uncomment below to destroy EC2 after deployment
-    # - name: Terraform Destroy
-    #   run: terraform destroy -auto-approve
-    #   working-directory: terraform
